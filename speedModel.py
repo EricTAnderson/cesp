@@ -56,7 +56,7 @@ def maxSpeed(windSpeed, windDir):
 
 #Returns a factor (0 to 1) that scales the speed according to how well the sail is trimmed
 #Sail Position is INPUT to this function
-def sailPosFactor(pos, windDir, main=True):
+def sailPosFactor(pos, windSpeed,windDir, main=True):
   if pos < 0 or pos > 90:
     print("Illegal main position")
     return
@@ -67,7 +67,7 @@ def sailPosFactor(pos, windDir, main=True):
   if pos > windDir:                 #Equivalent to backing the sail
     return 0
   else:                             #Code for optPos handles pinching just fine
-    opt = optPos(windDir,main)
+    opt = optPos(windSpeed,windDir,main)
     diff = abs(pos-opt)
     if diff > 30:       #If you're really off, we'll say you barely move
       return 0.2
@@ -78,30 +78,34 @@ def sailPosFactor(pos, windDir, main=True):
 def resultantSpeed(windSpeed,windDir,mainPos,jibPos):
   percentageMainDriven = 0.65           #How important the main is relative to the jib.  In this case, 65%
   speed = maxSpeed(windSpeed,windDir)
-  sailC = percentageMainDriven*sailPosFactor(mainPos,windDir) + (1-percentageMainDriven)*sailPosFactor(jibPos,windDir,False)
+  sailC = percentageMainDriven*sailPosFactor(mainPos,windSpeed,windDir) + (1-percentageMainDriven)*sailPosFactor(jibPos,windSpeed,windDir,False)
   return speed * sailC
 
 #The secret answer to the model, i.e. the optimal posiiton I would like to get from ML
 #Note that this would have you trim slightly tighter on beam reach than I would...
 #Should this be dependent on wind speed?
-def optPos(windDir,main=True):
+def optPos(windSpeed,windDir,main=True):
   jibOffset = 5                     #At max trim, how much should jib be eased?
   if windDir < PointingAngle:       #If we're pinching, just pull in sails as much as we ever would
     if main:
       return 0
     else:
       return jibOffset
+
+  extraEase = 0.0 
+  if(windSpeed > 12):
+    extraEase = lerp(windSpeed,12,18,0,7)   #Add at most 7 degrees of ease
   if(main):
-    return lerp(windDir,PointingAngle,180,0,90)
+    return min(lerp(windDir,PointingAngle,180,0,90) + extraEase,90)
   else:
-    return lerp(windDir,PointingAngle,180,jibOffset,90)  #Jib eased slightly more than main
+    return min(lerp(windDir,PointingAngle,180,jibOffset,90) + extraEase,90) #Jib eased slightly more than main
 
 #Returns the "optimal" sail position and assoc. speed according to the model
 #You can use this to check how good your guess was
 #Returns (main,jib,speed) tuples
 def peekOptimal(windSpeed,windDir):
-  optMain = optPos(windDir)
-  optJib = optPos(windDir,False)
+  optMain = optPos(windSpeed,windDir)
+  optJib = optPos(windSpeed,windDir,False)
   return (optMain,optJib,resultantSpeed(windSpeed,windDir,optMain,optJib))
 
 #Assumptions:
