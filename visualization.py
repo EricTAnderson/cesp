@@ -94,23 +94,27 @@ def optimalPolar(windSpeed):
 
 #Returns polars of optimal sail position (just a practice function)
 #Would be nice to add slider for wind speed...
-def interactiveControl():
+def vizControlStrategy(controller=None,plotOpt=True):
   windSpeed = 10
   ax = plt.subplot(111, projection='polar')
-  subplots_adjust(left=0.15,bottom=0.25)
+  subplots_adjust(bottom=0.20)
   
 
-  def plotGivenWindSpeed(windSpeed):
+  #RGBA values on 0 to 1 scale here
+  def plotGivenWindSpeed(controller,windSpeed,color=(0,0,0,1)):
+    if controller == None:
+      return
     ax.set_theta_zero_location('N')
     ax.set_theta_direction(-1)
     theta = []
     r = []
     for windDir in range(0,181,5):
-      (m,j,s) = sm.peekOptimal(windSpeed,windDir)
+      m,j = controller(windSpeed,windDir)[:2]       #sm.peekOptimal(windSpeed,windDir)
+      s=sm.resultantSpeed(windSpeed,windDir,m,j)    #This is the objective function always (while training on gen'ed data)
       theta.append(windDir)
       r.append(s)
       if(windDir % 20 == 0 and windDir > 35):
-        arr = boatImage(m,j)      #Optional parameter newColor to change color
+        arr = boatImage(m,j,newColor=tuple(255*x for x in color))      #Optional parameter newColor to change color
         arr = arr.rotate(-windDir,expand=True)
         im = OffsetImage(arr, zoom=0.4)
         ab = AnnotationBbox(im, (np.deg2rad(windDir),s+1), xycoords='data', frameon=False)
@@ -118,29 +122,32 @@ def interactiveControl():
         
         if(windDir < 180):
           #Plot the symmetrical boat, too
-          arr = boatImage(m,j, True)
+          arr = boatImage(m,j, True,newColor=tuple(255*x for x in color))
           arr = arr.rotate(windDir,expand=True)
           im = OffsetImage(arr, zoom=0.4)
           ab = AnnotationBbox(im, (np.deg2rad(-windDir),s+1), xycoords='data', frameon=False)
           ax.add_artist(ab)
   
       
-    p1 = ax.plot(np.deg2rad(theta), r, color='b', linewidth=3,alpha=0.5)
-    p2 = ax.plot(0-np.deg2rad(theta), r, color='b', linewidth=3,alpha=0.5)   #For symmetry
+    p1 = ax.plot(np.deg2rad(theta), r, color=color, linewidth=3,alpha=0.3)
+    p2 = ax.plot(0-np.deg2rad(theta), r, color=color, linewidth=3,alpha=0.3)   #For symmetry
     ax.set_rmax(12)
     ax.grid(True)
-    ax.set_title('Boatspeed with perfect sail position')
+    ax.set_title('Learned Control Strategy (Red) v Optimal (black)')
 
   axcolor = 'lightgoldenrodyellow'
   axSpd = axes([0.15, 0.1, 0.65, 0.03], axisbg=axcolor)
   sSpd = Slider(axSpd, 'Wind Speed', 0.01, 18.0, valinit=7)
   
   #Initial plot
-  plotGivenWindSpeed(sSpd.val)
-
+  plotGivenWindSpeed(sm.peekOptimal,sSpd.val) if plotOpt else None  #Optimal control
+  plotGivenWindSpeed(controller,sSpd.val,color=(1,0,0,1))           #Provided controller
+  
   def update(val):
     ax.clear()
-    curPlot = plotGivenWindSpeed(sSpd.val)
+    plotGivenWindSpeed(sm.peekOptimal,sSpd.val) if plotOpt else None  #Optimal control
+    plotGivenWindSpeed(controller,sSpd.val,color=(1,0,0,1))       #Provided controller
+ 
   sSpd.on_changed(update)
 
   plt.show()
