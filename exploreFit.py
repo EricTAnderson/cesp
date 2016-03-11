@@ -43,7 +43,7 @@ def main():
   # x.drop(['boatSpeed'],axis=1,inplace=True); 
   # val.drop(['boatSpeed'],axis=1,inplace=True); 
 
-  print('shapes:')
+  print('X and Validation Shapes:')
   print(x.shape)
   print(val.shape)
   # print(y.shape)
@@ -77,37 +77,37 @@ def main():
   ############################
   #         KNN              #
   ############################
-  
-  # n = 5
-  # print('Fitting Data with KNN Regression (' + str(n) + ' neighbors)\n...\n')
-  # knn = KNN(n_neighbors=n).fit(x,y)
+  '''
+  n = 5
+  print('Fitting Data with KNN Regression (' + str(n) + ' neighbors)\n...\n')
+  knn = KNN(n_neighbors=n).fit(x,y)
 
-  # print('Fitting Training Data')
-  # yhat = knn.predict(x)
-  # mse = ((yhat-y)**2).mean()
-  # print('Training Data MSE: ' + str(mse) + '\n')
+  print('Fitting Training Data')
+  yhat = knn.predict(x)
+  mse = ((yhat-y)**2).mean()
+  print('Training Data MSE: ' + str(mse) + '\n')
 
-  # print('Fitting Validation Data')
-  # yhat = knn.predict(val)
-  # mse = ((yhat-yVal)**2).mean()
-  # print('Validation Data MSE: ' + str(mse) + '\n')
-  
+  print('Fitting Validation Data')
+  yhat = knn.predict(val)
+  mse = ((yhat-yVal)**2).mean()
+  print('Validation Data MSE: ' + str(mse) + '\n')
+  '''
 
   ############################
   #     KNN Controller       #
   ############################
-
-  n = 200
+  '''
+  n = 1000
 
   #Write my own fit, as I need to have access to the actual neighbors in question:
   #Weighted average of points, using weight like c*speed/d (with appropriate scaling) or speed/exp(d)
   #so we weight close points over fast points (that probably are just for higher windspeeds)
   #only really want to get avg for main,jib (don't care about bs, probably inaccurate anyways)
   #X is the fitted set, xPred is the set to predict, n_neighbors is the number of neighbors to use.
-  def myPred(x,xPred,n_neighbors):
+  def myPred(x,xPred,n_neighbors,printMax=False):
     # print('in myPred(), x has null?: ' + str(x.isnull().any().any()))
     ds,inds = knn.kneighbors(xPred,n_neighbors=n_neighbors)
-    # print('Maximum distance point used is : ' + str(ds.max()))
+    print('Maximum distance point used is : ' + str(ds.max())) if printMax else None
     out=pd.DataFrame(columns=['mainOut','jibOut'])
     for d,ind,i in zip(ds,inds,range(ds.shape[0])):
       # print(i)
@@ -158,7 +158,7 @@ def main():
 
   if(input('Fit to Validation data? [Y/n]:') == 'Y'):
     print('Fitting Validation Data')
-    out = myPred(x,val.loc[:,['windSpeed','windDir']],n)
+    out = myPred(x,val.loc[:,['windSpeed','windDir']],n,printMax=True)
     #Calc MSE
     errs = []
     for w,sail in zip(x.index, out.index):
@@ -166,7 +166,7 @@ def main():
       errs.append(mySpeed-x.loc[w,'boatSpeed'])
     mse= (np.array(errs)**2).mean()
     print('Validation Data MSE: ' + str(mse) + '\n')
-
+  '''
 
   ############################
   #      RANDOM FOREST       #
@@ -186,6 +186,41 @@ def main():
   mse = ((yhat-yVal)**2).mean()
   print('Validation Data MSE: ' + str(mse) + '\n')
   '''
+
+  ############################
+  # RANDOM FOREST CONTROLLER #
+  ############################
+
+  #TODO: maybe sample the sail space given windspeed and winddirection, then choose the best point? Degree accuracy is only 90*90 = 1800 points per query
+
+  f = 30
+  print('Fitting Data with Random Forest (Forest size of : ' + str(f) + ')\n...\n')
+  rf = RFR(n_estimators=f, verbose=2, oob_score=True).fit(x.loc[:,x.columns.difference(['boatSpeed'])],x.loc[:,'boatSpeed'])
+
+  # print('Fitting Training Data')
+  # yhat = rf.predict(x.loc[:,x.columns.difference(['boatSpeed'])])
+  # mse = ((yhat-x.loc[:,'boatSpeed'])**2).mean()
+  # print('Training Data MSE: ' + str(mse) + '\n')
+
+  # print('Fitting Validation Data')
+  # yhat = rf.predict(val.loc[:,val.columns.difference(['boatSpeed'])])
+  # mse = ((yhat-val.loc[:,'boatSpeed'])**2).mean()
+  # print('Validation Data MSE: ' + str(mse) + '\n')
+
+  def forestControl(windSpeed,windDir):
+    query = pd.DataFrame(columns = x.columns.difference(['boatSpeed']))
+    for m in range(19):
+      for j in range(19):
+        query.loc[m*19+j,:] = {'windSpeed':windSpeed,'windDir':windDir,'main':m*5,'jib':j*5}
+    pred = pd.DataFrame(rf.predict(query))
+    ind = pred.idxmax()[0]
+    # print((query.loc[ind,'main'],query.loc[ind,'jib']))
+    return (query.loc[ind,'main'],query.loc[ind,'jib'])
+
+  v.vizControlStrategy(forestControl)
+
+
+
 
   ############################
   #        DPGMM             #
