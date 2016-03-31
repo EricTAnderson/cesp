@@ -30,9 +30,9 @@ def lerp(val, currentMin, currentMax, interpMin, interpMax):
 #At high speeds, you only get a fraction of the windspeed
 def maxSpeed(windSpeed, windDir):
   windySpeedFactor = 0.5    #In very windy conditions, what proportion of the windspeed is beam reach?
-                            #Obviously, only applicable in certain wind range (say, up to 20 kt)
                             #Note that if this is set too low you actually decrease in speed at high wind range!
   beatingFactor = 0.6       #How fast can you beat relative to beam reach speed?
+  
   #Dependency on wind speed
   if windSpeed < 2:
     spd = windSpeed
@@ -83,7 +83,8 @@ def resultantSpeed(windSpeed,windDir,mainPos,jibPos):
 
 #The secret answer to the model, i.e. the optimal posiiton I would like to get from ML
 #Note that this would have you trim slightly tighter on beam reach than I would...
-#Should this be dependent on wind speed?
+#But, my 'beam reach' is true wind, this beam reach is apparent? So might make sense?
+#This is now dependent on windSpeed (changes if windSpeed>= 12)
 def optPos(windSpeed,windDir,main=True):
   jibOffset = 5                     #At max trim, how much should jib be eased?
   if windDir < PointingAngle:       #If we're pinching, just pull in sails as much as we ever would
@@ -113,6 +114,7 @@ def peekOptimal(windSpeed,windDir):
 #In heavy wind, you can do 0.6 windspeed (lerp in between)
 #Sails should be proportional from close haul to running
 #Does heeling matter? Is it implicitly defined?
+#The model only works for conditions up to 18 kt
 def main():
   '''
   print('sailPosFactor test\n')

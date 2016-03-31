@@ -18,6 +18,12 @@ from PIL import Image as I, ImageDraw as D
 from math import cos, sin
 import speedModel as sm
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import gridspec
+from matplotlib.text import TextPath
+import mpl_toolkits.mplot3d.art3d as art3d
+from matplotlib.patches import Circle, PathPatch 
+from matplotlib.transforms import Affine2D
 
 #Returns an image of the sailboat pointed upwards with sails in the correct position
 def boatImage(main,jib,stbd=False, newColor=(0,0,0,255)):
@@ -92,8 +98,8 @@ def optimalPolar(windSpeed):
   plt.show()
 
 
-#Returns polars of optimal sail position (just a practice function)
-#Would be nice to add slider for wind speed...
+#Plots sailing polars and sailboat icons with representative sail positions for the optimal controller
+#(as defined in speedModel) if plotOpt is true and for a (presumably) learned controller function
 def vizControlStrategy(controller=None,plotOpt=True):
   windSpeed = 10
   ax = plt.subplot(111, projection='polar')
@@ -151,4 +157,135 @@ def vizControlStrategy(controller=None,plotOpt=True):
   sSpd.on_changed(update)
 
   plt.show()
+
+#A helper function to write text in 3d environment, taken from matplotlib online examples
+def text3d(ax, xyz, s, zdir="z", size=None, angle=0, **kwargs):
+
+    x, y, z = xyz
+    if zdir == "y":
+        xy1, z1 = (x, z), y
+    elif zdir == "y":
+        xy1, z1 = (y, z), x
+    else:
+        xy1, z1 = (x, y), z
+
+    text_path = TextPath((0, 0), s, size=size)
+    trans = Affine2D().rotate(angle).translate(xy1[0], xy1[1])
+
+    p1 = PathPatch(trans.transform_path(text_path), **kwargs)
+    ax.add_patch(p1)
+    art3d.pathpatch_2d_to_3d(p1, z=z1, zdir=zdir)
+
+
+#Take in a DataFrame of raw data and visualize it
+def vizRawData(data):
+  beatingAngle = 45 #Where do we draw the no go lines?
+
+  fig = plt.figure()
+  fig.set_size_inches(18, 12,forward=True)          #Manually resize
+  gs = gridspec.GridSpec(1, 2, width_ratios=[3, 1]) #Breaks up the figure according to special ratio
+  ax = fig.add_subplot(gs[0], projection='3d')      #The main figure
+  im = fig.add_subplot(gs[1])                       #The point inspector pane
+  im.axis('equal')
+  im.axis([0,1,0,1])
+  plt.tight_layout(pad=4.08, h_pad=None, w_pad=5, rect=None)  #Layout the plots nicely
+  
+  #Formatting
+  ax.set_title('Boatspeed as a function of Wind Angle (Raw Data)')
+  ax.set_zlabel('Boatspeed (kts)')
+  ax.set_xlabel('Wind Vector')
+  ax.set_ylabel('Wind Vector')
+
+  ax.set_xlim3d(-20,20)
+  ax.set_ylim3d(-20,20)
+  ax.set_zlim3d(0,12)
+  ax.axes.get_xaxis().set_ticks([])
+  ax.axes.get_yaxis().set_ticks([])
+  im.axes.get_xaxis().set_ticks([])
+  im.axes.get_yaxis().set_ticks([])
+
+
+  #Plot my own axes
+  ax.plot([0,0],[0,0],[0,15],'--k') #Vertical line
+  ax.plot([0,0],[0,20],[0,0],'--k',linewidth=3) #Horizontal line for Irons
+  ax.plot([0,20*np.sin(np.deg2rad(beatingAngle))],[0,20*np.cos(np.deg2rad(beatingAngle))],[0,0],color=(0.5,0.5,0.5),linestyle='--',linewidth=3) #Horizontal line for beating angles
+  ax.plot([0,-20*np.sin(np.deg2rad(beatingAngle))],[0,20*np.cos(np.deg2rad(beatingAngle))],[0,0],color=(0.5,0.5,0.5),linestyle='--',linewidth=3) #Horizontal line for beating angles
+  
+  # ax.plot([0,-20],[0,20],[0,0],color=(0.5,0.5,0.5),linestyle='--',linewidth=3) #Horizontal line for beating angles
+
+  #text3d angle is off by 90 from what I'm using
+  text3d(ax, (0.5,-0.5, 0),
+       " - no go zone - ",
+       zdir="z", size=3,
+       ec="none", fc=(0.3,0.3,0.3),angle=np.deg2rad(90-beatingAngle))
+  text3d(ax, (0.5,0.5, 0),
+       "   no go zone  ",
+       zdir="z", size=3,
+       ec="none", fc=(0.3,0.3,0.3),angle=np.deg2rad(90+beatingAngle))
+  text3d(ax, (0.5,3, 0),
+     " Wind Dir",
+     zdir="z", size=2,
+     ec="none", fc='k',angle=np.deg2rad(90))
+
+  for r in range(20):
+    p = Circle((0,0), r,fill=False,edgecolor=(0.7,0.7,0.7),linestyle=('-' if r%4 == 0 else '--'))
+    ax.add_patch(p)
+    art3d.pathpatch_2d_to_3d(p, z=0, zdir="z")
+
+  im.text(0.5, 0.75, 'Click on a point\n for more info',ha='center',fontsize=15,bbox={'facecolor':'blue', 'alpha':0.5, 'pad':10})
+
+  #Map data from polar
+  x = data.loc[:,'windSpeed']*np.sin(np.deg2rad(data.loc[:,'windDir']))  #So points along +y axis are head to wind
+  y = data.loc[:,'windSpeed']*np.cos(np.deg2rad(data.loc[:,'windDir']))
+  z = data.loc[:,'boatSpeed']
+  scat1 = ax.scatter(x,y,z, c=z, marker='o',picker=5, cmap = plt.cm.get_cmap('YlOrRd'))
+  scat2 = ax.scatter(-x,y,z, c=z, marker='o',picker=5, cmap = plt.cm.get_cmap('YlOrRd'))
+
+
+  #What happens when we click on a point?
+  def onpick(event):
+    #Make sure we're clicking within the correct subplot, as only one on-click for entire figure
+    if event.artist!=scat1 and event.artist!=scat2: 
+      return True
+
+    if not len(event.ind): return True
+    im.clear()
+    ind = event.ind[0]
+
+    j = data.iloc[ind].loc['jib']
+    m = data.iloc[ind].loc['jib']
+    wSpd = data.iloc[ind].loc['windSpeed']
+    wDir = data.iloc[ind].loc['windDir']
+    bs = data.iloc[ind].loc['boatSpeed']
+
+    #Assemble numerics
+    dispStr = 'Wind Speed: {:.2f} kts'.format(wSpd)
+    dispStr = dispStr + '\nWind Angle: {:.2f} deg'.format(wDir)
+    dispStr = dispStr + '\nMain Angle: {:.2f}'.format(m)
+    dispStr = dispStr + '\nJib Angle: {:.2f}'.format(j)
+    dispStr = dispStr + '\nBoat Speed: {:.2f} kts'.format(bs)
+
+    #Display numerics
+    im.text(0.5, 0.75, dispStr,ha='center',fontsize=15,bbox={'facecolor':'blue', 'alpha':0.5, 'pad':10})
+
+    #Plot the graphic
+    arr = boatImage(m,j)
+    offset = OffsetImage(arr,zoom = 2)
+    ab = AnnotationBbox(offset, (0.5,0.3), xycoords='data', frameon=False)
+    im.add_artist(ab)
+    im.annotate('Wind Direction', xy=(0.5,0.3),
+      xytext=(0.5 - 0.2*np.sin(np.deg2rad(wDir)),0.3+ 0.2*np.cos(np.deg2rad(wDir))),
+      arrowprops=dict(facecolor='blue'))
+    im.axes.get_xaxis().set_ticks([])   #Turn off numbers
+    im.axes.get_yaxis().set_ticks([])
+    fig.canvas.draw()   #Update everything
+
+  #These get overwritten if they aren't last
+  ax.invert_xaxis()
+  ax.invert_yaxis()
+
+  fig.canvas.mpl_connect('pick_event', onpick)  #Add the picker
+  plt.show()
+
+
 

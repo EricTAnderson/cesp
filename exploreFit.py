@@ -43,6 +43,9 @@ def main():
   # x.drop(['boatSpeed'],axis=1,inplace=True); 
   # val.drop(['boatSpeed'],axis=1,inplace=True); 
 
+  # v.vizRawData(x.loc[:20,:])
+  v.vizRawData(x.loc[:1500,:])
+
   print('X and Validation Shapes:')
   print(x.shape)
   print(val.shape)
@@ -97,7 +100,8 @@ def main():
   #     KNN Controller       #
   ############################
   '''
-  n = 1000
+  # n = 1000
+  n = 300
 
   #Write my own fit, as I need to have access to the actual neighbors in question:
   #Weighted average of points, using weight like c*speed/d (with appropriate scaling) or speed/exp(d)
@@ -190,10 +194,10 @@ def main():
   ############################
   # RANDOM FOREST CONTROLLER #
   ############################
-
+  '''
   #TODO: maybe sample the sail space given windspeed and winddirection, then choose the best point? Degree accuracy is only 90*90 = 1800 points per query
 
-  f = 30
+  f = 20
   print('Fitting Data with Random Forest (Forest size of : ' + str(f) + ')\n...\n')
   rf = RFR(n_estimators=f, verbose=2, oob_score=True).fit(x.loc[:,x.columns.difference(['boatSpeed'])],x.loc[:,'boatSpeed'])
 
@@ -208,8 +212,8 @@ def main():
   # print('Validation Data MSE: ' + str(mse) + '\n')
 
   def forestControl(windSpeed,windDir):
-    query = pd.DataFrame(columns = x.columns.difference(['boatSpeed']))
-    for m in range(19):
+    query = pd.DataFrame(columns = x.columns.difference(['boatSpeed'])) #Empty dataframe with correct columns
+    for m in range(19):       #Check every combination of angles (5 deg resolution)
       for j in range(19):
         query.loc[m*19+j,:] = {'windSpeed':windSpeed,'windDir':windDir,'main':m*5,'jib':j*5}
     pred = pd.DataFrame(rf.predict(query))
@@ -218,8 +222,8 @@ def main():
     return (query.loc[ind,'main'],query.loc[ind,'jib'])
 
   v.vizControlStrategy(forestControl)
-
-
+  
+  '''
 
 
   ############################
