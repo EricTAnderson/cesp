@@ -273,7 +273,7 @@ def vizRawData(data):
     offset = OffsetImage(arr,zoom = 2)
     ab = AnnotationBbox(offset, (0.5,0.3), xycoords='data', frameon=False)
     im.add_artist(ab)
-    im.annotate('Wind Direction', xy=(0.5,0.3),
+    im.annotate('W', xy=(0.5,0.3),
       xytext=(0.5 - 0.2*np.sin(np.deg2rad(wDir)),0.3+ 0.2*np.cos(np.deg2rad(wDir))),
       arrowprops=dict(facecolor='blue'))
     im.axes.get_xaxis().set_ticks([])   #Turn off numbers
@@ -288,4 +288,98 @@ def vizRawData(data):
   plt.show()
 
 
+def sliceRawData(data):
+  beatingAngle = 45 #Where do we draw the no go lines?
+  scat1 = None
+  scat2 = None
 
+  #Total figure
+  fig = plt.figure()
+  fig.set_size_inches(18, 12,forward=True)          #Manually resize
+  
+  #Polar Plot
+  gs = gridspec.GridSpec(1, 2, width_ratios=[3, 1]) #Breaks up the figure according to special ratio
+  ax = fig.add_subplot(gs[0], projection='polar')      #The main figure
+  subplots_adjust(bottom=0.20)
+  ax.set_theta_zero_location('N')
+  ax.set_theta_direction(-1)
+  
+  #Inspection pane
+  im = fig.add_subplot(gs[1])                       #The point inspector pane
+  im.axis('equal')
+  im.axis([0,1,0,1])
+  im.axes.get_xaxis().set_ticks([])
+  im.axes.get_yaxis().set_ticks([])
+  im.text(0.5, 0.75, 'Click on a point\n for more info',ha='center',fontsize=15,bbox={'facecolor':'blue', 'alpha':0.5, 'pad':10})
+
+  #General layout
+  plt.tight_layout(pad=4.08, h_pad=None, w_pad=5, rect=None)  #Layout the plots nicely
+
+  #What happens when we click on a point?  Copied from vizRawData()
+  def onpick(event):
+    #Make sure we're clicking within the correct subplot, as only one on-click for entire figure
+    # if event.artist!=scat1 and event.artist != scat2:
+    #   print("artist is not scat") 
+    #   return True
+
+    if not len(event.ind): return True
+    im.clear()
+    ind = event.ind[0]
+    l = data[data['windSpeed'] > sSpd.val - 0.5]
+    tot = l[l['windSpeed'] < sSpd.val + 0.5]
+    j = tot.iloc[ind].loc['jib']
+    m = tot.iloc[ind].loc['main']
+    wSpd = tot.iloc[ind].loc['windSpeed']
+    wDir = tot.iloc[ind].loc['windDir']
+    bs = tot.iloc[ind].loc['boatSpeed']
+
+    #Assemble numerics
+    dispStr = 'Wind Speed: {:.2f} kts'.format(wSpd)
+    dispStr = dispStr + '\nWind Angle: {:.2f} deg'.format(wDir)
+    dispStr = dispStr + '\nMain Angle: {:.2f}'.format(m)
+    dispStr = dispStr + '\nJib Angle: {:.2f}'.format(j)
+    dispStr = dispStr + '\nBoat Speed: {:.2f} kts'.format(bs)
+
+    #Display numerics
+    im.text(0.5, 0.75, dispStr,ha='center',fontsize=15,bbox={'facecolor':'blue', 'alpha':0.5, 'pad':10})
+
+    #Plot the graphic
+    arr = boatImage(m,j)
+    offset = OffsetImage(arr,zoom = 2)
+    ab = AnnotationBbox(offset, (0.5,0.3), xycoords='data', frameon=False)
+    im.add_artist(ab)
+    im.annotate('W', xy=(0.5,0.3),
+      xytext=(0.5 - 0.2*np.sin(np.deg2rad(wDir)),0.3+ 0.2*np.cos(np.deg2rad(wDir))),
+      arrowprops=dict(facecolor='blue'))
+    im.axes.get_xaxis().set_ticks([])   #Turn off numbers
+    im.axes.get_yaxis().set_ticks([])
+    fig.canvas.draw()   #Update everything
+
+
+  def plotWindSpeed(wSpd):
+    l = data[data['windSpeed'] > wSpd - 0.5]
+    tot = l[l['windSpeed'] < wSpd + 0.5]
+    scat1 = ax.scatter(np.deg2rad(tot.loc[:,'windDir']),tot.loc[:,'boatSpeed'],c = tot.loc[:,'boatSpeed'],picker=5, cmap = plt.cm.get_cmap('YlOrRd'))
+    scat2 = ax.scatter(np.deg2rad(360-tot.loc[:,'windDir']),tot.loc[:,'boatSpeed'],c=tot.loc[:,'boatSpeed'], picker=5, cmap = plt.cm.get_cmap('YlOrRd'))
+ 
+    ax.set_theta_zero_location('N')
+    ax.set_theta_direction(-1)
+  
+    ax.set_rmax(12)
+    ax.grid(True)
+    ax.set_title('BoatSpeed for Given Windspeed')
+
+  #Slider info
+  axcolor = 'lightgoldenrodyellow'
+  axSpd = axes([0.15, 0.05, 0.45, 0.03], axisbg=axcolor)
+  sSpd = Slider(axSpd, 'Wind Speed', 0.01, 18.0, valinit=7)
+
+
+  def update(val):
+    ax.clear()
+    plotWindSpeed(val)
+
+  plotWindSpeed(sSpd.val)
+  sSpd.on_changed(update)
+  fig.canvas.mpl_connect('pick_event', onpick)  #Add the picker
+  plt.show()

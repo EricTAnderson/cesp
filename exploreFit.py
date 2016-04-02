@@ -43,9 +43,6 @@ def main():
   # x.drop(['boatSpeed'],axis=1,inplace=True); 
   # val.drop(['boatSpeed'],axis=1,inplace=True); 
 
-  # v.vizRawData(x.loc[:20,:])
-  v.vizRawData(x.loc[:1500,:])
-
   print('X and Validation Shapes:')
   print(x.shape)
   print(val.shape)
@@ -55,6 +52,16 @@ def main():
   # print(val.head())
   # print(y.head())
   # print(yVal.head())
+
+  ############################
+  #     RAW DATA VIZ         #
+  ############################
+
+  # v.vizRawData(x.loc[:20,:])
+  v.sliceRawData(x)
+  return
+  # v.vizRawData(x.loc[:1500,:])
+
 
   print('--------------------\n      FITS\n--------------------\n')
 
@@ -99,7 +106,7 @@ def main():
   ############################
   #     KNN Controller       #
   ############################
-  '''
+  
   # n = 1000
   n = 300
 
@@ -170,7 +177,7 @@ def main():
       errs.append(mySpeed-x.loc[w,'boatSpeed'])
     mse= (np.array(errs)**2).mean()
     print('Validation Data MSE: ' + str(mse) + '\n')
-  '''
+  
 
   ############################
   #      RANDOM FOREST       #
