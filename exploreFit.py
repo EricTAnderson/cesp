@@ -8,15 +8,59 @@
 
 # This file uses several methods for fitting and is intended merely as a proof of concept.
 
-
+from matplotlib import pyplot as plt
 import visualization as v
 import speedModel as sm
 import numpy as np 
 import pandas as pd
 from sklearn.linear_model import LinearRegression as LR
+from sklearn.linear_model import RidgeCV
 from sklearn.neighbors import KNeighborsRegressor as KNN
 from sklearn.ensemble import RandomForestRegressor as RFR
 import sklearn.mixture as Mix
+import scipy.optimize as Opt
+
+#Returns an X data frame (*without* boatspeed) with polynomial expansion up to power Power.
+#Useful preprocessor for linear regression
+def polyExpand(data, power=1):
+  ret=pd.DataFrame(data.loc[:,data.columns.difference(['boatSpeed'])])
+  ret.columns=list(range(ret.shape[1]))       #Zero index the dataframe
+  
+  p = ret.shape[1]
+
+  #Init conditions.  Lots of pointers here
+  nextCol= ret.shape[1]   #Where to write to next
+  offsets = [0,1,2,3]     #Offsets for each j value
+  offset=0                #Each j iter we can calc offsets[i+1], so we need holder for (yet unused) old value
+  eltsInPrevLayers = ret.shape[1]   #Total # elts in previous layers (pointer to start of THIS layer)
+  nPrevPow = ret.shape[1]           #  # elts in last layer
+  
+  for trash in range(1,power):      #Do for a bunch of powers
+    startPrevPow = eltsInPrevLayers- nPrevPow     #Pointer to start of PREVIOUS layer
+
+    # print("  Power is: " + str(trash))
+    # print("  eltsInPrevLayers: " + str(eltsInPrevLayers))
+    # print("  nPrevPow: " + str(nPrevPow))
+    # print("  offsets: " + str(offsets))
+    # print("  startPrevPow: " + str(startPrevPow))
+
+    for i in range(p):
+      
+      # print("\ti is " + str(i))
+      # print("\t\toffset is " + str(offset))
+      
+      for j in range(offset,nPrevPow):
+        # print("\t\tj is " + str(j))
+        ret[nextCol] = ret.iloc[:,i]*ret.iloc[:,j+startPrevPow]
+        nextCol = nextCol + 1
+      if i != p-1:
+        offset = offsets[i+1]
+        offsets[i+1] = nextCol- eltsInPrevLayers
+    offset=0
+    nPrevPow = nextCol- eltsInPrevLayers
+    eltsInPrevLayers=nextCol
+
+  return ret
 
 def main():
   np.random.seed(0)       #For repeatability
@@ -58,9 +102,8 @@ def main():
   ############################
 
   # v.vizRawData(x.loc[:20,:])
-  v.sliceRawData(x)
-  return
   # v.vizRawData(x.loc[:1500,:])
+  # v.sliceRawData(x)
 
 
   print('--------------------\n      FITS\n--------------------\n')
@@ -69,44 +112,166 @@ def main():
   ############################
   #   LINEAR REGRESSION      #
   ############################
+
   '''
   print('Fitting Data with Linear Regression\n...\n')  
-  lr = LR().fit(x,y)
+  lr = LR().fit(x.loc[:,x.columns.difference(['boatSpeed'])],x.loc[:,'boatSpeed'])
 
   print('Fitting Training Data')
-  yhat = lr.predict(x)
-  mse = ((yhat-y)**2).mean()
+  yhat = lr.predict(x.loc[:,x.columns.difference(['boatSpeed'])])
+  mse = ((yhat-x.loc[:,'boatSpeed'])**2).mean()
   print('Training Data MSE: ' + str(mse) + '\n')
 
   print('Fitting Validation Data')
-  yhat = lr.predict(val)
-  mse = ((yhat-yVal)**2).mean()
+  yhat = lr.predict(val.loc[:,val.columns.difference(['boatSpeed'])])
+  mse = ((yhat-val.loc[:,'boatSpeed'])**2).mean()
+  print('Validation Data MSE: ' + str(mse) + '\n')
+  '''
+  
+  print('Fitting Data with Expanded Linear Regression\n...\n')
+  #Best expansion in 1 through 10
+  expandFactor=6
+  xExpand = polyExpand(x,expandFactor)
+  valExpand = polyExpand(val,expandFactor)
+
+  print("Sanity check, xExpand shape is: " + str(xExpand.shape))
+  print("Sanity check, valExpand shape is: " + str(valExpand.shape))
+
+  print("Fitting LR")
+  lr = LR().fit(xExpand,x.loc[:,'boatSpeed'])
+
+  print('Predicting Training Data')
+  yhat = lr.predict(xExpand)
+  mse = ((yhat-x.loc[:,'boatSpeed'])**2).mean()
+  print('Training Data MSE: ' + str(mse) + '\n')
+
+  print('Predicting Validation Data')
+  yhat = lr.predict(valExpand)
+  mse = ((yhat-val.loc[:,'boatSpeed'])**2).mean()
+  print('Validation Data MSE: ' + str(mse) + '\n')
+  
+
+
+
+
+  def lrController(wSpd,wDir):
+
+    #SailPos needs to be a single vector for the optimizer. Story in (main,jib) order
+    def lrbs(sailPos,sign=1.0):
+      a = pd.DataFrame()
+      a['main'] = sailPos[:,0]
+      a['jib'] = sailPos[:,1]
+      a['windSpeed'] = pd.Series([wSpd for x in range(len(a.index))])
+      a['windDir'] =  pd.Series([wDir for x in range(len(a.index))])
+      return sign*lr.predict(polyExpand(a,expandFactor))
+
+
+    #Constrained optimization, args = -1.0 to actually get max
+    # print("Beginning optimization")
+    # optRes = Opt.minimize(lrbs,np.zeros(2),args=(-1.0,),bounds=[(0,90),(0,90)], method='SLSQP',
+    #   options={'disp':True})
+    # print("Message from Optimizer:")
+    # print(optRes.message)
+    # aStar=optRes.x
+
+    # if not optRes.success:
+    #   print("Optimization failed, exiting now")
+    #   sys.exit(1)
+
+    #Approximate optimization
+    maxSpeed = 0.0
+    maxM = 0
+    maxJ = 0
+    stride=2
+    res = 90/stride+1
+    sailPos=np.zeros((res**2,2))
+    i = 0;
+    for m in range (0,91,stride):
+      for j in range(0,91,stride):
+        sailPos[i,0]=m
+        sailPos[i,1]=j
+        i = i+1
+
+
+    spds = lrbs(sailPos)
+    i = np.argmax(spds)
+    # print("My optimization finds:")
+    # print("main: " + str(sailPos[i,0]))
+    # print("jib: " + str(sailPos[i,1]))
+    # print("speed: " + str(spds[i]))
+    return(sailPos[i,0],sailPos[i,1])
+
+
+  # print(lrController(10,60))
+  
+  v.vizControlStrategy(lrController)
+
+
+
+
+
+  ############################
+  #   Ridge REGRESSION      #
+  ############################
+  '''
+  print('Fitting Data with Expanded Ridge Regression\n...\n')
+
+  xExpand = polyExpand(x,3)
+  valExpand = polyExpand(val,3)
+
+  print('Fitting ')
+  
+  #Shouldn't pass alpha = 0 -  leads to weird nan values in scores
+  #lams = np.logspace(-2,2, 100)
+  lams = np.arange(10,30,0.1)
+  rr = RidgeCV(alphas=lams, store_cv_values=True).fit(xExpand,x.loc[:,'boatSpeed'])
+
+  # print('Info on Cross Validation:')
+  # print('Average error per lambda')
+  
+  av = np.mean(rr.cv_values_,axis = 0)
+  print(av)
+
+  print('selected: ' + str(rr.alpha_))
+  plt.scatter(lams,av)
+  #plt.gca().set_xscale('log')
+  plt.show()
+
+
+  print('Predicting Training Data')
+  yhat = rr.predict(xExpand)
+  mse = ((yhat-x.loc[:,'boatSpeed'])**2).mean()
+  print('Training Data MSE: ' + str(mse) + '\n')
+
+  print('Predicting Validation Data')
+  yhat = rr.predict(valExpand)
+  mse = ((yhat-val.loc[:,'boatSpeed'])**2).mean()
   print('Validation Data MSE: ' + str(mse) + '\n')
   '''
 
   ############################
   #         KNN              #
   ############################
-  '''
-  n = 5
-  print('Fitting Data with KNN Regression (' + str(n) + ' neighbors)\n...\n')
-  knn = KNN(n_neighbors=n).fit(x,y)
+  
+  # n = 300
+  # print('Fitting Data with KNN Regression (' + str(n) + ' neighbors)\n...\n')
+  # knn = KNN(n_neighbors=n).fit(x.loc[:,x.columns.difference(['boatSpeed'])],x.loc[:,'boatSpeed'])
 
-  print('Fitting Training Data')
-  yhat = knn.predict(x)
-  mse = ((yhat-y)**2).mean()
-  print('Training Data MSE: ' + str(mse) + '\n')
+  # print('Fitting Training Data')
+  # yhat = knn.predict(x.loc[:,x.columns.difference(['boatSpeed'])])
+  # mse = ((yhat-x.loc[:,'boatSpeed'])**2).mean()
+  # print('Training Data MSE: ' + str(mse) + '\n')
 
-  print('Fitting Validation Data')
-  yhat = knn.predict(val)
-  mse = ((yhat-yVal)**2).mean()
-  print('Validation Data MSE: ' + str(mse) + '\n')
-  '''
+  # print('Fitting Validation Data')
+  # yhat = knn.predict(val.loc[:,val.columns.difference(['boatSpeed'])])
+  # mse = ((yhat-val.loc[:,'boatSpeed'])**2).mean()
+  # print('Validation Data MSE: ' + str(mse) + '\n')
+  
 
   ############################
   #     KNN Controller       #
   ############################
-  
+  '''
   # n = 1000
   n = 300
 
@@ -177,7 +342,7 @@ def main():
       errs.append(mySpeed-x.loc[w,'boatSpeed'])
     mse= (np.array(errs)**2).mean()
     print('Validation Data MSE: ' + str(mse) + '\n')
-  
+  '''
 
   ############################
   #      RANDOM FOREST       #
