@@ -62,41 +62,6 @@ def boatImage(main,jib,stbd=False, newColor=(0,0,0,255)):
     return boat.transpose(0)
   return boat
 
-#Returns polars of optimal sail position (just a practice function)
-#Would be nice to add slider for wind speed...
-def optimalPolar(windSpeed):
-  ax = plt.subplot(111, projection='polar')
-  ax.set_theta_zero_location('N')
-  ax.set_theta_direction(-1)
-  theta = []
-  r = []
-  for windDir in range(0,181,5):
-    (m,j,s) = sm.peekOptimal(windSpeed,windDir)
-    theta.append(windDir)
-    r.append(s)
-    if(windDir % 20 == 0 and windDir > 35):
-      arr = boatImage(m,j)
-      arr = arr.rotate(-windDir,expand=True)
-      im = OffsetImage(arr, zoom=0.4)
-      ab = AnnotationBbox(im, (np.deg2rad(windDir),s+1), xycoords='data', frameon=False)
-      ax.add_artist(ab)
-      
-      if(windDir < 180):
-        #Plot the symmetrical boat, too
-        arr = boatImage(m,j, True)
-        arr = arr.rotate(windDir,expand=True)
-        im = OffsetImage(arr, zoom=0.4)
-        ab = AnnotationBbox(im, (np.deg2rad(-windDir),s+1), xycoords='data', frameon=False)
-        ax.add_artist(ab)
-
-  
-  ax.plot(np.deg2rad(theta), r, color='b', linewidth=3,alpha=0.5)
-  ax.plot(0-np.deg2rad(theta), r, color='b', linewidth=3,alpha=0.5)   #For symmetry
-  ax.set_rmax(10.0)
-  ax.grid(True)
-  ax.set_title('Boatspeed with perfect sail position (Windspeed = ' + str(windSpeed) + ' knots)')
-  plt.show()
-
 
 #Plots sailing polars and sailboat icons with representative sail positions for the optimal controller
 #(as defined in speedModel) if plotOpt is true and for a (presumably) learned controller function
@@ -107,6 +72,7 @@ def vizControlStrategy(controller=None,plotOpt=True):
   
 
   #RGBA values on 0 to 1 scale here
+  #Adding MSE analysis here, although it's too bad that it has to be in a visualization file
   def plotGivenWindSpeed(controller,windSpeed,color=(0,0,0,1)):
     if controller == None:
       return
@@ -114,11 +80,14 @@ def vizControlStrategy(controller=None,plotOpt=True):
     ax.set_theta_direction(-1)
     theta = []
     r = []
+    optSpeed = []
     for windDir in range(0,181,5):
-      m,j = controller(windSpeed,windDir)[:2]       #sm.peekOptimal(windSpeed,windDir)
+      m,j = controller(windSpeed,windDir)[:2]       
       s=sm.resultantSpeed(windSpeed,windDir,m,j)    #This is the objective function always (while training on gen'ed data)
       theta.append(windDir)
       r.append(s)
+      optSpeed.append(sm.peekOptimal(windSpeed,windDir)[2])
+      #Plot boats
       if(windDir % 20 == 0 and windDir > 35):
         arr = boatImage(m,j,newColor=tuple(255*x for x in color))      #Optional parameter newColor to change color
         arr = arr.rotate(-windDir,expand=True)
@@ -134,12 +103,12 @@ def vizControlStrategy(controller=None,plotOpt=True):
           ab = AnnotationBbox(im, (np.deg2rad(-windDir),s+1), xycoords='data', frameon=False)
           ax.add_artist(ab)
   
-      
+    mseOpt = ((np.array(r) - np.array(optSpeed))**2).mean()
     p1 = ax.plot(np.deg2rad(theta), r, color=color, linewidth=3,alpha=0.3)
     p2 = ax.plot(0-np.deg2rad(theta), r, color=color, linewidth=3,alpha=0.3)   #For symmetry
     ax.set_rmax(12)
     ax.grid(True)
-    ax.set_title('Learned Control Strategy (Red) v Optimal (black)')
+    ax.set_title('Learned Control Strategy (Red) v Optimal (black)\nMSE from Opt: ' + str(mseOpt))
 
   axcolor = 'lightgoldenrodyellow'
   axSpd = axes([0.15, 0.1, 0.65, 0.03], axisbg=axcolor)
@@ -382,4 +351,39 @@ def sliceRawData(data):
   plotWindSpeed(sSpd.val)
   sSpd.on_changed(update)
   fig.canvas.mpl_connect('pick_event', onpick)  #Add the picker
+  plt.show()
+
+#Returns polars of optimal sail position (just a practice function)
+#Would be nice to add slider for wind speed...
+def optimalPolar(windSpeed):
+  ax = plt.subplot(111, projection='polar')
+  ax.set_theta_zero_location('N')
+  ax.set_theta_direction(-1)
+  theta = []
+  r = []
+  for windDir in range(0,181,5):
+    (m,j,s) = sm.peekOptimal(windSpeed,windDir)
+    theta.append(windDir)
+    r.append(s)
+    if(windDir % 20 == 0 and windDir > 35):
+      arr = boatImage(m,j)
+      arr = arr.rotate(-windDir,expand=True)
+      im = OffsetImage(arr, zoom=0.4)
+      ab = AnnotationBbox(im, (np.deg2rad(windDir),s+1), xycoords='data', frameon=False)
+      ax.add_artist(ab)
+      
+      if(windDir < 180):
+        #Plot the symmetrical boat, too
+        arr = boatImage(m,j, True)
+        arr = arr.rotate(windDir,expand=True)
+        im = OffsetImage(arr, zoom=0.4)
+        ab = AnnotationBbox(im, (np.deg2rad(-windDir),s+1), xycoords='data', frameon=False)
+        ax.add_artist(ab)
+
+  
+  ax.plot(np.deg2rad(theta), r, color='b', linewidth=3,alpha=0.5)
+  ax.plot(0-np.deg2rad(theta), r, color='b', linewidth=3,alpha=0.5)   #For symmetry
+  ax.set_rmax(10.0)
+  ax.grid(True)
+  ax.set_title('Boatspeed with perfect sail position (Windspeed = ' + str(windSpeed) + ' knots)')
   plt.show()
