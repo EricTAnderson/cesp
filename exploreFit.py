@@ -62,6 +62,22 @@ def polyExpand(data, power=1):
 
   return ret
 
+#Given a controller, returns the MSE versus optimal for a grid of sailing conditions
+# And also the average percent error
+def coarseErrorvOpt(controller):
+  actualSpeed = []
+  optSpeed = []
+  for wSpd in range(1,18):
+    for wDir in range(50,180):
+      m,j = controller(wSpd,wDir)[:2]
+      actualSpeed.append(sm.resultantSpeed(wSpd,wDir,m,j))
+      optSpeed.append(sm.peekOptimal(wSpd,wDir)[2])
+  actualSpeed = np.array(actualSpeed)
+  optSpeed = np.array(optSpeed)
+  mse = ((actualSpeed - optSpeed)**2).mean()
+  percent = abs(np.array(actualSpeed - optSpeed)).mean()
+  return (mse,percent)
+
 
 def main():
   np.random.seed(0)       #For repeatability
@@ -189,7 +205,10 @@ def main():
 
 
   # print(lrController(10,60))
-  
+  print("Comparing Controller to Optimal")
+  mse, perc = coarseErrorvOpt(lrController)
+  print("MSE versus optimal is " + str(mse))
+  print("Percent Error versus optimal is " + str(perc))
   v.vizControlStrategy(lrController)
 
 
