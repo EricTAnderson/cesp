@@ -109,6 +109,23 @@ def peekOptimal(windSpeed,windDir):
   optJib = optPos(windSpeed,windDir,False)
   return (optMain,optJib,resultantSpeed(windSpeed,windDir,optMain,optJib))
 
+
+#Given a controller, returns the MSE versus optimal for a grid of sailing conditions
+# And also the average percent error
+def coarseErrorvOpt(controller):
+  actualSpeed = []
+  optSpeed = []
+  for wSpd in range(1,18):
+    for wDir in range(50,180):
+      m,j = controller(wSpd,wDir)[:2]
+      actualSpeed.append(resultantSpeed(wSpd,wDir,m,j))
+      optSpeed.append(peekOptimal(wSpd,wDir)[2])
+  actualSpeed = np.array(actualSpeed)
+  optSpeed = np.array(optSpeed)
+  mse = ((actualSpeed - optSpeed)**2).mean()
+  percent = abs(np.array(actualSpeed - optSpeed)).mean()
+  return (mse,percent)
+
 #Assumptions:
 #On beam reach, you can do windspeed in light wind
 #In heavy wind, you can do 0.6 windspeed (lerp in between)
