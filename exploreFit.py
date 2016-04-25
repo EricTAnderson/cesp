@@ -83,8 +83,9 @@ def main():
   np.random.seed(0)       #For repeatability
 
   #Read in the training data
-  print('Reading data from hardcoded file')
-  with open('genTrain.csv','r') as f:
+  fileName = 'planeTrain.csv'
+  print('Reading data from hardcoded file: ' + fileName)
+  with open(fileName,'r') as f:
     x = pd.read_csv(f)#, nrows= 1000)
 
   #Get a validation set
@@ -114,9 +115,9 @@ def main():
   ############################
 
   # v.vizRawData(x.loc[:20,:])
-  # v.vizRawData(x.loc[:1500,:])
-  # v.sliceRawData(x)
-
+  # v.vizRawData(x.loc[:5000,:])
+  v.sliceRawData(x)
+  return
 
   ############################
   #     Fitted Models        #

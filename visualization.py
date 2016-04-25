@@ -65,7 +65,7 @@ def boatImage(main,jib,stbd=False, newColor=(0,0,0,255)):
 
 #Plots sailing polars and sailboat icons with representative sail positions for the optimal controller
 #(as defined in speedModel) if plotOpt is true and for a (presumably) learned controller function
-def vizControlStrategy(controller=None,plotOpt=True):
+def vizControlStrategy(controller=None,plotOpt=True,model=sm, rawData = pd.DataFrame()):
   windSpeed = 10
   ax = plt.subplot(111, projection='polar')
   subplots_adjust(bottom=0.20)
@@ -73,20 +73,29 @@ def vizControlStrategy(controller=None,plotOpt=True):
 
   #RGBA values on 0 to 1 scale here
   #Adding MSE analysis here, although it's too bad that it has to be in a visualization file
-  def plotGivenWindSpeed(controller,windSpeed,color=(0,0,0,1)):
+  def plotGivenWindSpeed(controller,windSpeed,color=(0,0,0,1),plotData=False):
     if controller == None:
       return
     ax.set_theta_zero_location('N')
     ax.set_theta_direction(-1)
+
+    #Maybe add scatter plot in background?
+    if plotData and not rawData.empty :
+      l = rawData[rawData['windSpeed'] > windSpeed - 0.5]
+      tot = l[l['windSpeed'] < windSpeed + 0.5]
+      scat1 = ax.scatter(np.deg2rad(tot.loc[:,'windDir']),tot.loc[:,'boatSpeed'],c = tot.loc[:,'boatSpeed'],picker=5, cmap = plt.cm.get_cmap('YlOrRd'),zorder=-1, alpha=0.5)
+      scat2 = ax.scatter(np.deg2rad(360-tot.loc[:,'windDir']),tot.loc[:,'boatSpeed'],c=tot.loc[:,'boatSpeed'], picker=5, cmap = plt.cm.get_cmap('YlOrRd'),zorder=-1,alpha=0.5)
+
+
     theta = []
     r = []
     optSpeed = []
     for windDir in range(0,181,5):
       m,j = controller(windSpeed,windDir)[:2]       
-      s=sm.resultantSpeed(windSpeed,windDir,m,j)    #This is the objective function always (while training on gen'ed data)
+      s=model.resultantSpeed(windSpeed,windDir,m,j)    #This is the objective function always (while training on gen'ed data)
       theta.append(windDir)
       r.append(s)
-      optSpeed.append(sm.peekOptimal(windSpeed,windDir)[2])
+      optSpeed.append(model.peekOptimal(windSpeed,windDir)[2])
       #Plot boats
       if(windDir % 20 == 0 and windDir > 35):
         arr = boatImage(m,j,newColor=tuple(255*x for x in color))      #Optional parameter newColor to change color
@@ -104,24 +113,26 @@ def vizControlStrategy(controller=None,plotOpt=True):
           ax.add_artist(ab)
   
     mseOpt = ((np.array(r) - np.array(optSpeed))**2).mean()
-    p1 = ax.plot(np.deg2rad(theta), r, color=color, linewidth=3,alpha=0.3)
-    p2 = ax.plot(0-np.deg2rad(theta), r, color=color, linewidth=3,alpha=0.3)   #For symmetry
+    p1 = ax.plot(np.deg2rad(theta), r, color=color, linewidth=3,alpha=0.6,zorder=1)
+    p2 = ax.plot(0-np.deg2rad(theta), r, color=color, linewidth=3,alpha=0.6,zorder=1)   #For symmetry
     ax.set_rmax(12)
     ax.grid(True)
     ax.set_title('Learned Control Strategy (Red) v Optimal (black)\nMSE from Opt: ' + str(mseOpt))
+
+    
 
   axcolor = 'lightgoldenrodyellow'
   axSpd = axes([0.15, 0.1, 0.65, 0.03], axisbg=axcolor)
   sSpd = Slider(axSpd, 'Wind Speed', 0.01, 18.0, valinit=7)
   
   #Initial plot
-  plotGivenWindSpeed(sm.peekOptimal,sSpd.val) if plotOpt else None  #Optimal control
-  plotGivenWindSpeed(controller,sSpd.val,color=(1,0,0,1))           #Provided controller
+  plotGivenWindSpeed(model.peekOptimal,sSpd.val) if plotOpt else None  #Optimal control
+  plotGivenWindSpeed(controller,sSpd.val,color=(1,0,0,1),plotData = True)           #Provided controller
   
   def update(val):
     ax.clear()
-    plotGivenWindSpeed(sm.peekOptimal,sSpd.val) if plotOpt else None  #Optimal control
-    plotGivenWindSpeed(controller,sSpd.val,color=(1,0,0,1))       #Provided controller
+    plotGivenWindSpeed(model.peekOptimal,sSpd.val) if plotOpt else None  #Optimal control
+    plotGivenWindSpeed(controller,sSpd.val,color=(1,0,0,1),plotData=True)       #Provided controller
  
   sSpd.on_changed(update)
 

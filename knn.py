@@ -3,6 +3,7 @@
 from matplotlib import pyplot as plt
 import visualization as v
 import speedModel as sm
+import planingModel as pm
 import numpy as np 
 import pandas as pd
 from sklearn.neighbors import KNeighborsRegressor as KNN
@@ -10,11 +11,13 @@ from sklearn.neighbors import KNeighborsRegressor as KNN
 
 def main():
   np.random.seed(0)       #For repeatability
-
+  fName = 'genTrain.csv'
+  if len(argv) >=2:
+    fName = argv[1]
   #Read in the training data
-  print('Reading data from hardcoded file')
-  with open('genTrain.csv','r') as f:
-    x = pd.read_csv(f,nrows= 50000  )
+  print('Reading data from hardcoded file: ' + fName)
+  with open(fName,'r') as f:
+    x = pd.read_csv(f)#, nrows= 10000)
 
   #Get a validation set
   print('Creating Validation and Training sets')
@@ -101,15 +104,16 @@ def main():
   # print('Fitting Validation Data')
   # out = myPred(x,val.loc[:,['windSpeed','windDir']],n,printMax=False)
   
-  v.vizControlStrategy(knnController)
+
 
   if(input('Compare to Optimal Data? [Y/n]:') == 'Y'):
     mse, perc = sm.coarseErrorvOpt(knnController)
     print("MSE versus optimal is " + str(mse))
     print("Percent Error versus optimal is " + str(perc))
 
-
-
+  print("Visualizing control strategy")
+  print("Model used: PLANING MODEL")
+  v.vizControlStrategy(knnController,rawData=x,model=pm)
 
 if __name__=="__main__":
   main()
