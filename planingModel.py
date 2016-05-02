@@ -59,7 +59,8 @@ def maxSpeed(windSpeed, windDir):
 #Sail Position is INPUT to this function
 def sailPosFactor(pos, windSpeed,windDir, main=True):
   if pos < 0 or pos > 90:
-    print("Illegal main position")
+    msg = 'Illegal main position: ' + str(pos) if main else 'Illegal jib position: ' + str(pos)
+    print(msg)
     return
   if windDir < 0 or windDir > 180:
     print("Illegal windDir, must be in [0,180], was: " + str(windDir))

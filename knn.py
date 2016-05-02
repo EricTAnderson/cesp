@@ -7,9 +7,9 @@ import planingModel as pm
 import numpy as np 
 import pandas as pd
 from sklearn.neighbors import KNeighborsRegressor as KNN
+import sys
 
-
-def main():
+def main(argv):
   np.random.seed(0)       #For repeatability
   fName = 'genTrain.csv'
   if len(argv) >=2:
@@ -17,7 +17,7 @@ def main():
   #Read in the training data
   print('Reading data from hardcoded file: ' + fName)
   with open(fName,'r') as f:
-    x = pd.read_csv(f)#, nrows= 10000)
+    x = pd.read_csv(f,nrows= 50000)
 
   #Get a validation set
   print('Creating Validation and Training sets')
@@ -34,8 +34,8 @@ def main():
   print(x.shape)
   print(val.shape)
 
-  # n = 1000
-  n = 300
+  n = 1000
+  # n = 300
 
   #Write my own fit, as I need to have access to the actual neighbors in question:
   #Weighted average of points, using weight like c*speed/d (with appropriate scaling) or speed/exp(d)
@@ -60,11 +60,14 @@ def main():
       # print('\n')
 
       #My weight function, not complete yet
-      w = 10**(x.loc[ind,'boatSpeed'])/(d+1)                            
+      w = 10**(x.loc[ind,'boatSpeed'])/(d+1)
+      # w = (x.loc[ind,'boatSpeed']**10)
+
       
       out.loc[i,'mainOut'] = ((x.loc[ind,'main'] * w).sum())/w.sum()
+      out.loc[i,'mainOut'] = max(min(out.loc[i,'mainOut'],90),0)
       out.loc[i,'jibOut'] = ((x.loc[ind,'jib'] * w).sum())/w.sum()
-    
+      out.loc[i,'jibOut'] = max(min(out.loc[i,'jibOut'],90),0)
     out.index=xPred.index   #Make indices correspond
     return out
   
@@ -80,6 +83,11 @@ def main():
     # print('x0: ' + str(x[0]))
     # print('x1: ' + str(x[1]))
     return (((x[0]-y[0])**2)/100 + ((x[1]-y[1])**2)/4)**0.5
+
+    #2 degress off course = 2 knots windspeed difference
+    # print('x0: ' + str(x[0]))
+    # print('x1: ' + str(x[1]))
+    # return (((x[0]-y[0])**2)/9.0 + ((x[1]-y[1])**2)/4.0)**0.5
 
 
   print('Fitting Data with KNN Regression (' + str(n) + ' neighbors)\n...\n')
@@ -112,8 +120,9 @@ def main():
     print("Percent Error versus optimal is " + str(perc))
 
   print("Visualizing control strategy")
-  print("Model used: PLANING MODEL")
-  v.vizControlStrategy(knnController,rawData=x,model=pm)
+  
+  print("Model used: SPEED MODEL")
+  v.vizControlStrategy(knnController,rawData=x,model=sm)
 
 if __name__=="__main__":
-  main()
+  main(sys.argv)

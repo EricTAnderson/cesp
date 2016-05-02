@@ -98,9 +98,6 @@ def main(argv):
     #   sys.exit(1)
 
     #Approximate optimization
-    maxSpeed = 0.0
-    maxM = 0
-    maxJ = 0
     stride=2
     res = 90/stride+1
     sailPos=np.zeros((res**2,2))
@@ -118,7 +115,7 @@ def main(argv):
 
   if input('Compare to Optimal? [Y/n]: ' ) == 'Y':
     print("Comparing Controller to Optimal")
-    mse, perc = sm.coarseErrorvOpt(lrController)
+    mse, perc = pm.coarseErrorvOpt(lrController)
     print("MSE versus optimal is " + str(mse))
     print("Percent Error versus optimal is " + str(perc))
   
