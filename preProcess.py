@@ -1,6 +1,9 @@
 import numpy as np 
 import pandas as pd
 
+#preProcess.py        Eric Anderson
+#Contains a final verson of polynomial basis expansion that can be refrenced as a library function
+
 #Returns an X data frame (*without* boatspeed) with polynomial expansion up to power Power.
 #Useful preprocessor for linear regression
 def polyExpand(data, power=1):

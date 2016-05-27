@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #generateCSV.py
-#uses speedModel.py to create sample data written to a csv file
+#uses speedModel.py or planingModel.py to create sample data written to a csv file
 #Noise is optionally added to the data
 #Output format is (wind speed (0-18), relative Wind Direction(0-180), main position (0-90), jib position(0-90), boat speed)
 

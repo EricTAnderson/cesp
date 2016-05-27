@@ -133,6 +133,8 @@ def coarseErrorvOpt(controller):
 #Does heeling matter? Is it implicitly defined?
 #The model only works for conditions up to 18 kt
 def main():
+  #Main just contains tests
+  
   '''
   print('sailPosFactor test\n')
   for wDir in range(0,190,10):

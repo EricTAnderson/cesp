@@ -9,6 +9,9 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor as RFR
 import sys
 
+#rf.py       Eric Anderson (5/16)
+# A final draft of random forest code.  Must alter hardcoded 'pm/sm' refs to change which model you are using,
+# and for planing code must call with the argument <planing csv file name>
 
 def main(argv):
   np.random.seed(0)       #For repeatability
@@ -35,7 +38,7 @@ def main(argv):
   print(x.shape)
   print(val.shape)
   
-  f = 30
+  f = 100
   print('Fitting Data with Random Forest (Forest size of : ' + str(f) + ')\n...\n')
   rf = RFR(n_estimators=f, verbose=2, oob_score=True).fit(x.loc[:,x.columns.difference(['boatSpeed'])],x.loc[:,'boatSpeed'])
   

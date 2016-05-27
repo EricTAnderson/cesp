@@ -11,6 +11,10 @@ from sklearn.linear_model import LinearRegression as LR
 from preProcess import polyExpand
 
 
+#linear.py       Eric Anderson (5/16)
+# A final draft of linear regression + basis expansion code.  Must alter hardcoded 'pm/sm' refs to change which model you are using,
+# and for planing code must call with the argument <planing csv file name>
+
 def main(argv):
 
   np.random.seed(0)       #For repeatability

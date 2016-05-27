@@ -9,6 +9,10 @@ import pandas as pd
 from sklearn.neighbors import KNeighborsRegressor as KNN
 import sys
 
+#knn.py       Eric Anderson (5/16)
+# A final draft of modified KNN code.  Must alter hardcoded 'pm/sm' refs to change which model you are using,
+# and for planing code must call with the argument <planing csv file name>
+
 def main(argv):
   np.random.seed(0)       #For repeatability
   fName = 'genTrain.csv'
@@ -115,14 +119,14 @@ def main(argv):
 
 
   if(input('Compare to Optimal Data? [Y/n]:') == 'Y'):
-    mse, perc = sm.coarseErrorvOpt(knnController)
+    mse, perc = pm.coarseErrorvOpt(knnController)
     print("MSE versus optimal is " + str(mse))
     print("Percent Error versus optimal is " + str(perc))
 
   print("Visualizing control strategy")
   
-  print("Model used: SPEED MODEL")
-  v.vizControlStrategy(knnController,rawData=x,model=sm)
+  print("Model used: PLANING MODEL")
+  v.vizControlStrategy(knnController,model=pm,rawData=x)
 
 if __name__=="__main__":
   main(sys.argv)
